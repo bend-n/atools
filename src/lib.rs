@@ -29,7 +29,7 @@ pub mod prelude {
     #[doc(inline)]
     pub use super::{
         pervasive::prelude::*, range, splat, Array, ArrayTools, Chunked, CollectArray, Couple,
-        DropFront, Join, Pop, Trunc, Tuple,
+        DropFront, Flatten, Join, Pop, Trunc, Tuple,
     };
     #[doc(inline)]
     pub use core::array::from_fn;
@@ -223,6 +223,38 @@ impl<const N: usize, T> Chunked<T, N> for [T; N] {
     {
         // SAFETY: N != 0 && wont leak as N % C == 0.
         unsafe { MD::new(self).as_ptr().cast::<[[T; C]; N / C]>().read() }
+    }
+}
+
+/// Flatten arrays.
+pub trait Flatten<T, const N: usize, const N2: usize> {
+    /// Takes a `[[T; N]; N2]`, and flattens it to a `[T; N * N2]`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #![feature(generic_const_exprs)]
+    /// # use atools::prelude::*;
+    /// assert_eq!([[1, 2, 3], [4, 5, 6]].flatten(), [1, 2, 3, 4, 5, 6]);
+    ///
+    /// assert_eq!(
+    ///     [[1, 2, 3], [4, 5, 6]].flatten(),
+    ///     [[1, 2], [3, 4], [5, 6]].flatten(),
+    /// );
+    ///
+    /// let array_of_empty_arrays: [[i32; 0]; 5] = [[], [], [], [], []];
+    /// assert!(array_of_empty_arrays.flatten().is_empty());
+    ///
+    /// let empty_array_of_arrays: [[u32; 10]; 0] = [];
+    /// assert!(empty_array_of_arrays.flatten().is_empty());
+    /// ```
+    fn flatten(self) -> [T; N * N2];
+}
+
+impl<T, const N: usize, const N2: usize> Flatten<T, N, N2> for [[T; N]; N2] {
+    fn flatten(self) -> [T; N * N2] {
+        // SAFETY: layout is the same.
+        unsafe { core::intrinsics::transmute_unchecked(self) }
     }
 }
 
