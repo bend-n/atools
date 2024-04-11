@@ -2,9 +2,12 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(incomplete_features, internal_features)]
 #![feature(
+    effects,
+    const_refs_to_cell,
     generic_const_exprs,
     core_intrinsics,
     iter_intersperse,
+    const_trait_impl,
     maybe_uninit_array_assume_init,
     inline_const,
     array_windows,
@@ -35,7 +38,13 @@ pub mod prelude {
     pub use core::array::from_fn;
 }
 
-use core::{array::from_fn, mem::ManuallyDrop as MD};
+#[repr(C)]
+struct Pair<X, Y>(X, Y);
+
+use core::{
+    array::from_fn, intrinsics::transmute_unchecked, mem::ManuallyDrop as MD,
+    mem::MaybeUninit as MU,
+};
 pub mod pervasive;
 mod tuple;
 pub use tuple::*;
@@ -45,17 +54,19 @@ pub fn splat<T: Clone, const N: usize>(a: T) -> [T; N] {
     from_fn(|_| a.clone())
 }
 
-const fn id<T>(x: T) -> T {
-    x
-}
-
 /// Creates a array of indices.
 /// ```
 /// # use atools::prelude::*;
 /// assert_eq!(range::<5>(), [0, 1, 2, 3, 4]);
 /// ```
-pub fn range<const N: usize>() -> [usize; N] {
-    from_fn(id)
+pub const fn range<const N: usize>() -> [usize; N] {
+    let mut out = unsafe { MU::<[MU<usize>; N]>::uninit().assume_init() };
+    let mut i = 0usize;
+    while i < out.len() {
+        out[i] = MU::new(i);
+        i += 1;
+    }
+    unsafe { transmute_unchecked(out) }
 }
 
 /// Collect an iterator into a array.
@@ -84,6 +95,7 @@ impl<T, I: Iterator<Item = T>> CollectArray<T> for I {
 /// # use atools::prelude::*;
 /// let (t, arr) = [1, 2].pop_front();
 /// ```
+#[const_trait]
 pub trait Pop<T, const N: usize> {
     /// Pop the front of a array.
     /// ```
@@ -103,7 +115,7 @@ pub trait Pop<T, const N: usize> {
     fn pop(self) -> ([T; N - 1], T);
 }
 
-impl<T, const N: usize> Pop<T, N> for [T; N] {
+impl<T, const N: usize> const Pop<T, N> for [T; N] {
     fn pop_front(self) -> (T, [T; N - 1]) {
         // SAFETY: hi crater
         unsafe { core::intrinsics::transmute_unchecked(self) }
@@ -146,6 +158,7 @@ impl<const N: usize, T> DropFront<T, N> for [T; N] {
 }
 
 /// Join scalars together.
+#[const_trait]
 pub trait Join<T, const N: usize, const O: usize, U> {
     /// Join a array and an scalar together. For joining two arrays together, see [`Couple`].
     /// ```
@@ -158,6 +171,7 @@ pub trait Join<T, const N: usize, const O: usize, U> {
 }
 
 /// Couple two arrays together.
+#[const_trait]
 pub trait Couple<T, const N: usize, const O: usize> {
     /// Couple two arrays together. This could have been [`Join`], but the methods would require disambiguation.
     /// ```
@@ -167,25 +181,26 @@ pub trait Couple<T, const N: usize, const O: usize> {
     fn couple(self, with: [T; O]) -> [T; N + O];
 }
 
-impl<T, const N: usize, const O: usize> Couple<T, N, O> for [T; N] {
+impl<T, const N: usize, const O: usize> const Couple<T, N, O> for [T; N] {
     fn couple(self, with: [T; O]) -> [T; N + O] {
-        self.into_iter().chain(with).carr()
+        // SAFETY: adjacent
+        unsafe { transmute_unchecked(Pair(self, with)) }
     }
 }
 
-impl<T, const N: usize> Join<T, N, 1, T> for [T; N] {
+impl<T, const N: usize> const Join<T, N, 1, T> for [T; N] {
     fn join(self, with: T) -> [T; N + 1] {
         self.couple([with])
     }
 }
 
-impl<T> Join<T, 1, 1, T> for T {
+impl<T> const Join<T, 1, 1, T> for T {
     fn join(self, with: T) -> [T; 2] {
         [self, with]
     }
 }
 
-impl<T, const O: usize> Join<T, 1, O, [T; O]> for T {
+impl<T, const O: usize> const Join<T, 1, O, [T; O]> for T {
     fn join(self, with: [T; O]) -> [T; 1 + O] {
         [self].couple(with)
     }
@@ -201,6 +216,7 @@ pub(crate) const fn assert_zero(x: usize) -> usize {
 
 /// 🍪
 #[allow(private_bounds)]
+#[const_trait]
 pub trait Chunked<T, const N: usize> {
     /// Chunks.
     /// This will compile fail if `N ∤ (does not divide) C`
@@ -215,7 +231,7 @@ pub trait Chunked<T, const N: usize> {
         [(); assert_zero(N % C)]:;
 }
 
-impl<const N: usize, T> Chunked<T, N> for [T; N] {
+impl<const N: usize, T> const Chunked<T, N> for [T; N] {
     #[allow(private_bounds)]
     fn chunked<const C: usize>(self) -> [[T; C]; N / C]
     where
@@ -227,6 +243,7 @@ impl<const N: usize, T> Chunked<T, N> for [T; N] {
 }
 
 /// Flatten arrays.
+#[const_trait]
 pub trait Flatten<T, const N: usize, const N2: usize> {
     /// Takes a `[[T; N]; N2]`, and flattens it to a `[T; N * N2]`.
     ///
@@ -251,7 +268,7 @@ pub trait Flatten<T, const N: usize, const N2: usize> {
     fn flatten(self) -> [T; N * N2];
 }
 
-impl<T, const N: usize, const N2: usize> Flatten<T, N, N2> for [[T; N]; N2] {
+impl<T, const N: usize, const N2: usize> const Flatten<T, N, N2> for [[T; N]; N2] {
     fn flatten(self) -> [T; N * N2] {
         // SAFETY: layout is the same.
         unsafe { core::intrinsics::transmute_unchecked(self) }
