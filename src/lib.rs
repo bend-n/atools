@@ -2,6 +2,7 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(incomplete_features, internal_features)]
 #![feature(
+    adt_const_params,
     effects,
     const_refs_to_cell,
     generic_const_exprs,
@@ -9,7 +10,6 @@
     iter_intersperse,
     const_trait_impl,
     maybe_uninit_array_assume_init,
-    inline_const,
     array_windows,
     iter_map_windows
 )]
@@ -23,6 +23,17 @@
     clippy::use_self,
     missing_docs
 )]
+use core::{
+    array::from_fn,
+    intrinsics::transmute_unchecked,
+    mem::{ManuallyDrop as MD, MaybeUninit as MU},
+};
+pub mod pervasive;
+mod slice;
+mod tuple;
+#[doc(inline)]
+pub use slice::Slice;
+pub use tuple::*;
 
 /// The prelude. You should
 /// ```
@@ -31,8 +42,8 @@
 pub mod prelude {
     #[doc(inline)]
     pub use super::{
-        pervasive::prelude::*, range, splat, Array, ArrayTools, Chunked, CollectArray, Couple,
-        DropFront, Flatten, Join, Pop, Trunc, Tuple,
+        pervasive::prelude::*, range, slice::r, slice::Slice, splat, Array, ArrayTools, Chunked,
+        CollectArray, Couple, DropFront, Flatten, Join, Pop, Split, Trunc, Tuple,
     };
     #[doc(inline)]
     pub use core::array::from_fn;
@@ -40,14 +51,13 @@ pub mod prelude {
 
 #[repr(C)]
 struct Pair<X, Y>(X, Y);
-
-use core::{
-    array::from_fn, intrinsics::transmute_unchecked, mem::ManuallyDrop as MD,
-    mem::MaybeUninit as MU,
-};
-pub mod pervasive;
-mod tuple;
-pub use tuple::*;
+impl<X, Y> From<Pair<X, Y>> for (X, Y) {
+    fn from(p: Pair<X, Y>) -> Self {
+        // SAFETY: this is unsound, as the layout of the tuple may change.
+        // crater? you there yet?
+        unsafe { transmute_unchecked(p) }
+    }
+}
 
 /// Convenience function for when clonage is required; prefer `[T; N]` if possible. Also useful if `N` should be inferred.
 pub fn splat<T: Clone, const N: usize>(a: T) -> [T; N] {
@@ -116,14 +126,16 @@ pub trait Pop<T, const N: usize> {
 }
 
 impl<T, const N: usize> const Pop<T, N> for [T; N] {
+    #[doc(alias = "head")]
     fn pop_front(self) -> (T, [T; N - 1]) {
-        // SAFETY: hi crater
-        unsafe { core::intrinsics::transmute_unchecked(self) }
+        // SAFETY: the layout is alright.
+        unsafe { core::intrinsics::transmute_unchecked::<_, Pair<_, _>>(self) }.into()
     }
 
+    #[doc(alias = "last")]
     fn pop(self) -> ([T; N - 1], T) {
-        // SAFETY: i am evil
-        unsafe { core::intrinsics::transmute_unchecked(self) }
+        // SAFETY: the layout is still alright.
+        unsafe { core::intrinsics::transmute_unchecked::<_, Pair<_, _>>(self) }.into()
     }
 }
 
@@ -272,6 +284,25 @@ impl<T, const N: usize, const N2: usize> const Flatten<T, N, N2> for [[T; N]; N2
     fn flatten(self) -> [T; N * N2] {
         // SAFETY: layout is the same.
         unsafe { core::intrinsics::transmute_unchecked(self) }
+    }
+}
+
+#[const_trait]
+/// Splitting arrays up.
+pub trait Split<T, const N: usize> {
+    /// Splits the array into twain.
+    /// ```
+    /// # use atools::prelude::*;
+    /// let x = [1u8, 2, 3];
+    /// let ([x], [y, z]) = x.split::<1>();
+    /// ```
+    fn split<const AT: usize>(self) -> ([T; AT], [T; N - AT]);
+}
+
+impl<T, const N: usize> Split<T, N> for [T; N] {
+    fn split<const AT: usize>(self) -> ([T; AT], [T; N - AT]) {
+        // SAFETY: N - AT overflows when AT > N so the size of the returned "array" is the same.
+        unsafe { transmute_unchecked::<_, Pair<_, _>>(self) }.into()
     }
 }
 
