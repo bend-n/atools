@@ -3,8 +3,6 @@
 #![allow(incomplete_features, internal_features)]
 #![feature(
     adt_const_params,
-    effects,
-    const_refs_to_cell,
     generic_const_exprs,
     core_intrinsics,
     iter_intersperse,
@@ -23,11 +21,7 @@
     clippy::use_self,
     missing_docs
 )]
-use core::{
-    array::from_fn,
-    intrinsics::transmute_unchecked,
-    mem::{ManuallyDrop as MD, MaybeUninit as MU},
-};
+use core::{array::from_fn, intrinsics::transmute_unchecked, mem::MaybeUninit as MU};
 pub mod pervasive;
 mod slice;
 mod tuple;
@@ -51,11 +45,17 @@ pub mod prelude {
 
 #[repr(C)]
 struct Pair<X, Y>(X, Y);
-impl<X, Y> From<Pair<X, Y>> for (X, Y) {
-    fn from(p: Pair<X, Y>) -> Self {
+impl<X, Y> Pair<X, Y> {
+    const unsafe fn into(self) -> (X, Y) {
         // SAFETY: this is unsound, as the layout of the tuple may change.
         // crater? you there yet?
-        unsafe { transmute_unchecked(p) }
+        unsafe { transmute_unchecked(self) }
+    }
+
+    const unsafe fn splat<T>(x: T) -> (X, Y) {
+        assert!(core::mem::size_of::<T>() == core::mem::size_of::<Pair<X, Y>>());
+        // SAFETY: well.
+        unsafe { transmute_unchecked::<_, Self>(x).into() }
     }
 }
 
@@ -66,6 +66,7 @@ pub fn splat<T: Clone, const N: usize>(a: T) -> [T; N] {
 
 /// Creates a array of indices.
 /// ```
+/// # #![feature(generic_const_exprs)]
 /// # use atools::prelude::*;
 /// assert_eq!(range::<5>(), [0, 1, 2, 3, 4]);
 /// ```
@@ -102,6 +103,7 @@ impl<T, I: Iterator<Item = T>> CollectArray<T> for I {
 /// ```
 /// when possible. If the length of the array is a const generic, use
 /// ```
+/// # #![feature(generic_const_exprs)]
 /// # use atools::prelude::*;
 /// let (t, arr) = [1, 2].pop_front();
 /// ```
@@ -109,6 +111,7 @@ impl<T, I: Iterator<Item = T>> CollectArray<T> for I {
 pub trait Pop<T, const N: usize> {
     /// Pop the front of a array.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let (t, arr) = b"abc".pop_front();
     /// # assert_eq!(t, b'a');
@@ -117,6 +120,7 @@ pub trait Pop<T, const N: usize> {
     fn pop_front(self) -> (T, [T; N - 1]);
     /// Pop the back (end) of a array.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let (arr, t) = [0.1f32, 0.2, 0.3].pop();
     /// # assert_eq!(arr, [0.1, 0.2]);
@@ -129,13 +133,13 @@ impl<T, const N: usize> const Pop<T, N> for [T; N] {
     #[doc(alias = "head")]
     fn pop_front(self) -> (T, [T; N - 1]) {
         // SAFETY: the layout is alright.
-        unsafe { core::intrinsics::transmute_unchecked::<_, Pair<_, _>>(self) }.into()
+        unsafe { Pair::splat(self) }
     }
 
     #[doc(alias = "last")]
     fn pop(self) -> ([T; N - 1], T) {
         // SAFETY: the layout is still alright.
-        unsafe { core::intrinsics::transmute_unchecked::<_, Pair<_, _>>(self) }.into()
+        unsafe { Pair::splat(self) }
     }
 }
 
@@ -144,6 +148,7 @@ pub trait Trunc<T, const N: usize> {
     /// Remove the last element of a array.
     /// You can think of this like <code>a.[pop()](Pop::pop).0</code>
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let a = [1u64, 2].trunc();
     /// assert_eq!(a, [1]);
@@ -174,6 +179,7 @@ impl<const N: usize, T> DropFront<T, N> for [T; N] {
 pub trait Join<T, const N: usize, const O: usize, U> {
     /// Join a array and an scalar together. For joining two arrays together, see [`Couple`].
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let a = [1, 2].join(3);
     /// let b = 1.join([2, 3]);
@@ -187,6 +193,7 @@ pub trait Join<T, const N: usize, const O: usize, U> {
 pub trait Couple<T, const N: usize, const O: usize> {
     /// Couple two arrays together. This could have been [`Join`], but the methods would require disambiguation.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let a = 1.join(2).couple([3, 4]);
     /// ```
@@ -233,6 +240,7 @@ pub trait Chunked<T, const N: usize> {
     /// Chunks.
     /// This will compile fail if `N ∤ (does not divide) C`
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// assert_eq!(range::<6>().chunked::<3>(), [[0, 1, 2], [3, 4, 5]]);
     /// ```
@@ -250,7 +258,9 @@ impl<const N: usize, T> const Chunked<T, N> for [T; N] {
         [(); assert_zero(N % C)]:,
     {
         // SAFETY: N != 0 && wont leak as N % C == 0.
-        unsafe { MD::new(self).as_ptr().cast::<[[T; C]; N / C]>().read() }
+        let retval = unsafe { self.as_ptr().cast::<[[T; C]; N / C]>().read() };
+        core::mem::forget(self);
+        retval
     }
 }
 
@@ -292,6 +302,7 @@ impl<T, const N: usize, const N2: usize> const Flatten<T, N, N2> for [[T; N]; N2
 pub trait Split<T, const N: usize> {
     /// Splits the array into twain.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let x = [1u8, 2, 3];
     /// let ([x], [y, z]) = x.split::<1>();
@@ -302,7 +313,7 @@ pub trait Split<T, const N: usize> {
 impl<T, const N: usize> Split<T, N> for [T; N] {
     fn split<const AT: usize>(self) -> ([T; AT], [T; N - AT]) {
         // SAFETY: N - AT overflows when AT > N so the size of the returned "array" is the same.
-        unsafe { transmute_unchecked::<_, Pair<_, _>>(self) }.into()
+        unsafe { transmute_unchecked::<_, Pair<_, _>>(self).into() }
     }
 }
 
@@ -313,6 +324,7 @@ pub trait ArrayTools<T, const N: usize> {
     /// Skip every `BY` elements.
     ///
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let x = range::<5>().step::<2>();
     /// assert_eq!(x, [0, 2, 4]);
@@ -325,6 +337,7 @@ pub trait ArrayTools<T, const N: usize> {
     fn zip<U>(self, with: [U; N]) -> [(T, U); N];
     /// Intersperse a element in between items.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let x = range::<3>().intersperse(5);
     /// assert_eq!(x, [0, 5, 1, 5, 2]);
@@ -338,12 +351,14 @@ pub trait ArrayTools<T, const N: usize> {
     fn enumerate(self) -> [(T, usize); N];
     /// Take `M` elements, discarding the rest.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// assert_eq!(range::<50>().take::<5>(), range::<5>());
     /// ```
     fn take<const M: usize>(self) -> [T; M];
     /// Get the sliding windows of this array.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// assert_eq!(range::<5>().windowed::<2>(), [&[0, 1], &[1, 2], &[2, 3], &[3, 4]]);
     /// ```
@@ -354,12 +369,14 @@ pub trait ArrayTools<T, const N: usize> {
     fn rev(self) -> Self;
     /// Interleave items from two arrays.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// assert_eq!([0u8, 2, 4].interleave([1, 3, 5]), [0, 1, 2, 3, 4, 5]);
     /// ```
     fn interleave(self, with: [T; N]) -> [T; N * 2];
     /// [Cartesian product](https://en.wikipedia.org/wiki/Cartesian_product) (`A  ×  B`) of two arrays.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// assert_eq!([1u64, 2].cartesian_product(&["Π", "Σ"]), [(1, "Π"), (1, "Σ"), (2, "Π"), (2, "Σ")]);
     /// ```

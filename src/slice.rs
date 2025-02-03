@@ -1,5 +1,5 @@
 use core::ops::{RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Eq, PartialEq, Copy, Clone, core::marker::ConstParamTy)]
 pub enum Range {
     Range(usize, usize),
     RangeFrom(usize),
@@ -65,14 +65,13 @@ pub const fn r<T: ~const Ranged>(x: T) -> Range {
     Ranged::range(x)
 }
 
-impl core::marker::ConstParamTy for Range {}
-
 #[const_trait]
 /// Slicing arrays up.
 pub trait Slice<T, const N: usize> {
     /// Slices the array.
     /// Compile time checked.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let x = atools::range::<5>();
     /// assert_eq!(*x.slice::<{ r(2..=4) }>(), [2, 3, 4]);
@@ -85,6 +84,7 @@ pub trait Slice<T, const N: usize> {
 
     /// Yields all but the last element.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let x = atools::range::<5>();
     /// assert!(*x.init() == atools::range::<4>());
@@ -92,6 +92,7 @@ pub trait Slice<T, const N: usize> {
     fn init(&self) -> &[T; N - 1];
     /// Yields all but the first element.
     /// ```
+    /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let x = atools::range::<5>();
     /// assert!(*x.tail() == atools::range::<4>().map(|x| x + 1));

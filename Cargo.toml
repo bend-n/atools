@@ -1,6 +1,6 @@
 [package]
 name = "atools"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 description = "const generic expr based fixed length array manipulation"
 authors = ["bend-n <bend.n@outlook.com>"]
@@ -8,3 +8,4 @@ license = "MIT"
 repository = "https://github.com/bend-n/atools"
 keywords = ["array"]
 categories = ["no-std"]
+rust-version = "1.85"
