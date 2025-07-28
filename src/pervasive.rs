@@ -11,7 +11,7 @@ pub mod scalar_and_array {
 
             impl<T: core::ops::$op<Output = T> + Copy, const N: usize> $n<T, N> for T {
                 fn $f(self, rhs: [T; N]) -> [T; N] {
-                    rhs.map(|x| core::ops::$op::$f(x, self))
+                    rhs.map(|x| core::ops::$op::$f(self, x))
                 }
             }
         };
@@ -118,4 +118,5 @@ pub mod prelude {
 fn x() {
     use prelude::*;
     assert_eq!(2.mul([5, 2].add(5)), [20, 14]);
+    assert_eq!(5.0.sub([2., 6.]), [3., -1.]);
 }
