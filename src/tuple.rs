@@ -4,92 +4,79 @@ pub trait Array<const N: usize, T> {
     fn array(self) -> [T; N];
 }
 
-impl<T> Array<1, T> for (T,) {
-    fn array(self) -> [T; 1] {
-        [self.0]
-    }
-}
-
 /// Turn a array into a tuple. Implemented for N≤32
 pub trait Tuple<O> {
     /// Turn a array into a tuple.
     fn tuple(self) -> O;
 }
 
-impl<T> Tuple<(T,)> for [T; 1] {
-    fn tuple(self) -> (T,) {
-        let [t] = self;
-        (t,)
-    }
+// thanks yandros
+macro_rules! with_vars {
+    (
+        [acc: $($acc:tt)*]
+        [to_munch: T $($rest:tt)*]
+        $($cb:tt)*
+    ) => (with_vars! {
+        [acc: $($acc)* x]
+        [to_munch: $($rest)*]
+        $($cb)*
+    });
+
+    (
+        [acc: $($var:ident)*]
+        [to_munch: /* nothing */]
+        |$_:tt $metavar:ident| $body:tt
+    ) => ({
+        macro_rules! __emit__ {(
+            $_( $_ $metavar:ident)*
+        ) =>
+            $body
+        }
+        __emit__! { $($var)* }
+    });
 }
 
-#[rustfmt::skip]
-// for n in range(1, 32):
-//    print(f"impl <T> Tuple<(T{', T' * n})> for [T; {n + 1}] {{ fn tuple(self) -> (T{', T' * n}) {{ let [{', '.join([f't{n}' for n in range(1,n+2)])}] = self; ({', '.join([f't{n}' for n in range(1,n+2)])}) }} }}")
-//    print(f"impl <T> Array<{n+1}, T> for (T{', T' * n}) {{ fn array(self) -> [T; {n + 1}] {{ [{', '.join([f'self.{n}' for n in range(0,n+1)])}] }} }}")
-mod rest {
-    use super::{Array,Tuple};
-    impl <T> Tuple<(T, T)> for [T; 2] { fn tuple(self) -> (T, T) { let [t1, t2] = self; (t1, t2) } }
-    impl <T> Array<2, T> for (T, T) { fn array(self) -> [T; 2] { [self.0, self.1] } }
-    impl <T> Tuple<(T, T, T)> for [T; 3] { fn tuple(self) -> (T, T, T) { let [t1, t2, t3] = self; (t1, t2, t3) } }
-    impl <T> Array<3, T> for (T, T, T) { fn array(self) -> [T; 3] { [self.0, self.1, self.2] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T)> for [T; 4] { fn tuple(self) -> (T, T, T, T) { let [t1, t2, t3, t4] = self; (t1, t2, t3, t4) } }
-    #[doc(hidden)] impl <T> Array<4, T> for (T, T, T, T) { fn array(self) -> [T; 4] { [self.0, self.1, self.2, self.3] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T)> for [T; 5] { fn tuple(self) -> (T, T, T, T, T) { let [t1, t2, t3, t4, t5] = self; (t1, t2, t3, t4, t5) } }
-    #[doc(hidden)] impl <T> Array<5, T> for (T, T, T, T, T) { fn array(self) -> [T; 5] { [self.0, self.1, self.2, self.3, self.4] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T)> for [T; 6] { fn tuple(self) -> (T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6] = self; (t1, t2, t3, t4, t5, t6) } }
-    #[doc(hidden)] impl <T> Array<6, T> for (T, T, T, T, T, T) { fn array(self) -> [T; 6] { [self.0, self.1, self.2, self.3, self.4, self.5] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T)> for [T; 7] { fn tuple(self) -> (T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7] = self; (t1, t2, t3, t4, t5, t6, t7) } }
-    #[doc(hidden)] impl <T> Array<7, T> for (T, T, T, T, T, T, T) { fn array(self) -> [T; 7] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T)> for [T; 8] { fn tuple(self) -> (T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8] = self; (t1, t2, t3, t4, t5, t6, t7, t8) } }
-    #[doc(hidden)] impl <T> Array<8, T> for (T, T, T, T, T, T, T, T) { fn array(self) -> [T; 8] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T)> for [T; 9] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9) } }
-    #[doc(hidden)] impl <T> Array<9, T> for (T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 9] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T)> for [T; 10] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10) } }
-    #[doc(hidden)] impl <T> Array<10, T> for (T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 10] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T)> for [T; 11] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11) } }
-    #[doc(hidden)] impl <T> Array<11, T> for (T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 11] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 12] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12) } }
-    #[doc(hidden)] impl <T> Array<12, T> for (T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 12] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 13] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13) } }
-    #[doc(hidden)] impl <T> Array<13, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 13] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 14] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14) } }
-    #[doc(hidden)] impl <T> Array<14, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 14] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 15] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15) } }
-    #[doc(hidden)] impl <T> Array<15, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 15] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 16] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16) } }
-    #[doc(hidden)] impl <T> Array<16, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 16] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 17] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17) } }
-    #[doc(hidden)] impl <T> Array<17, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 17] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 18] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18) } }
-    #[doc(hidden)] impl <T> Array<18, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 18] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 19] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19) } }
-    #[doc(hidden)] impl <T> Array<19, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 19] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 20] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20) } }
-    #[doc(hidden)] impl <T> Array<20, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 20] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 21] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21) } }
-    #[doc(hidden)] impl <T> Array<21, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 21] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 22] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22) } }
-    #[doc(hidden)] impl <T> Array<22, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 22] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 23] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23) } }
-    #[doc(hidden)] impl <T> Array<23, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 23] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 24] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24) } }
-    #[doc(hidden)] impl <T> Array<24, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 24] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22, self.23] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 25] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25) } }
-    #[doc(hidden)] impl <T> Array<25, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 25] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22, self.23, self.24] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 26] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26) } }
-    #[doc(hidden)] impl <T> Array<26, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 26] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22, self.23, self.24, self.25] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 27] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27) } }
-    #[doc(hidden)] impl <T> Array<27, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 27] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22, self.23, self.24, self.25, self.26] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 28] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28) } }
-    #[doc(hidden)] impl <T> Array<28, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 28] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22, self.23, self.24, self.25, self.26, self.27] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 29] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29) } }
-    #[doc(hidden)] impl <T> Array<29, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 29] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22, self.23, self.24, self.25, self.26, self.27, self.28] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 30] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29, t30] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29, t30) } }
-    #[doc(hidden)] impl <T> Array<30, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 30] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22, self.23, self.24, self.25, self.26, self.27, self.28, self.29] } }
-    #[doc(hidden)] impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 31] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29, t30, t31] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29, t30, t31) } }
-    #[doc(hidden)] impl <T> Array<31, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 31] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22, self.23, self.24, self.25, self.26, self.27, self.28, self.29, self.30] } }
-    impl <T> Tuple<(T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T)> for [T; 32] { fn tuple(self) -> (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { let [t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29, t30, t31, t32] = self; (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29, t30, t31, t32) } }
-    impl <T> Array<32, T> for (T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T) { fn array(self) -> [T; 32] { [self.0, self.1, self.2, self.3, self.4, self.5, self.6, self.7, self.8, self.9, self.10, self.11, self.12, self.13, self.14, self.15, self.16, self.17, self.18, self.19, self.20, self.21, self.22, self.23, self.24, self.25, self.26, self.27, self.28, self.29, self.30, self.31] } }
-    
+macro_rules! generate {(
+    $($Hd:tt $($T:tt)*)?
+) => (
+    $(generate! { $($T)* })?
+    do_impl! { [$] $($Hd $($T)*)? }
+)}
+macro_rules! do_impl {(
+    [$_:tt] // `$` sigil
+    $($i:tt)*
+) => (
+    impl<T> Tuple<($($i, )*)> for [T; 0 $(+ { stringify!($i); 1 } )*] {
+        fn tuple(self) -> ($($i, )*) {
+            with_vars! {
+                [acc: ]
+                [to_munch: $($i)*]
+                |$_ x| {
+                    let [$_($x, )*] = self;
+                    ($_($x, )*)
+                }
+            }
+        }
+    }
+
+    impl<T> Array<{ 0 $(+ { stringify!($i); 1 } )* }, T> for ($($i, )*) {
+        fn array(self) -> [T; 0 $(+ { stringify!($i); 1 } )*] {
+            with_vars! {
+                [acc: ]
+                [to_munch: $($i)*]
+                |$_ x| {
+                    let ($_($_ x, )*) = self;
+                    [$_($_ x, )*]
+                }
+            }
+        }
+    }
+)}
+
+generate! {
+    T T T T  T T T T
+    T T T T  T T T T
+    T T T T  T T T T
+    T T T T  T T T T
+    T T T T  T T T T
 }

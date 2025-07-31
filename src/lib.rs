@@ -441,8 +441,9 @@ impl<T, const N: usize> ArrayTools<T, N> for [T; N] {
         self
     }
 
-    fn rev(self) -> Self {
-        self.into_iter().rev().carr()
+    fn rev(mut self) -> Self {
+        self.reverse();
+        self
     }
 
     fn interleave(self, with: [T; N]) -> [T; N * 2] {
