@@ -41,7 +41,7 @@ pub mod prelude {
     #[doc(inline)]
     pub use super::{
         pervasive::prelude::*, range, slice::r, slice::Slice, splat, Array, ArrayTools, Chunked,
-        CollectArray, Couple, DropFront, Flatten, Join, Pop, Split, Trunc, Tuple,
+        CollectArray, Couple, Deconstruct, Flatten, Join, Split, Tuple,
     };
     #[doc(inline)]
     pub use core::array::from_fn;
@@ -112,7 +112,7 @@ impl<T, I: Iterator<Item = T>> CollectArray<T> for I {
     }
 }
 
-/// Pop parts of a array.
+/// Deconstruct some array.
 /// Use
 /// ```
 /// let [t, arr @ ..] = [1, 2];
@@ -121,72 +121,84 @@ impl<T, I: Iterator<Item = T>> CollectArray<T> for I {
 /// ```
 /// # #![feature(generic_const_exprs)]
 /// # use atools::prelude::*;
-/// let (t, arr) = [1, 2].pop_front();
+/// let (t, arr) = [1, 2].uncons();
 /// ```
 #[const_trait]
-pub trait Pop<T, const N: usize> {
-    /// Pop the front of a array.
+pub trait Deconstruct<T, const N: usize> {
+    /// Gives you the <code>[[head](Deconstruct_::head), [tail](Deconstruct_::tail) @ ..]</code>
     /// ```
     /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
-    /// let (t, arr) = b"abc".pop_front();
+    /// let (t, arr) = b"abc".uncons();
     /// # assert_eq!(t, b'a');
     /// # assert_eq!(arr, *b"bc");
     /// ```
-    fn pop_front(self) -> (T, [T; N - 1]);
-    /// Pop the back (end) of a array.
+    fn uncons(self) -> (T, [T; N - 1]);
+    /// Gives you the <code>[[init](Deconstruct_::init) @ .., [last](Deconstruct_::last)]</code>
     /// ```
     /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
-    /// let (arr, t) = [0.1f32, 0.2, 0.3].pop();
+    /// let (arr, t) = [0.1f32, 0.2, 0.3].unsnoc();
     /// # assert_eq!(arr, [0.1, 0.2]);
     /// assert_eq!(t, 0.3);
     /// ```
-    fn pop(self) -> ([T; N - 1], T);
+    fn unsnoc(self) -> ([T; N - 1], T);
 }
 
-impl<T, const N: usize> const Pop<T, N> for [T; N] {
-    #[doc(alias = "head")]
-    fn pop_front(self) -> (T, [T; N - 1]) {
+/// Deconstruct some array. (dropping edition).
+///
+/// <img src="https://media.discordapp.net/attachments/273541645579059201/1404772577259294770/listmonster.png?ex=689c67e9&is=689b1669&hm=00525f7bb8ffb2eb096a46d10509ebf8def669ca3175a713df686ff4be7a4e67">
+pub trait Deconstruct_<T, const N: usize> {
+    /// Gives you a <code>[[_](Deconstruct_::init) @ .., last]</code>.
+    /// See also [`unsnoc`](Deconstruct::unsnoc).
+    fn last(self) -> T;
+    /// Gives you a <code>[init @ .., [_](Deconstruct_::last)]</code>
+    /// See also [`unsnoc`](Deconstruct::unsnoc).
+    /// ```
+    /// # #![feature(generic_const_exprs)]
+    /// # use atools::prelude::*;
+    /// let a = *[1u64, 2, 3].init();
+    /// assert_eq!(a, [1, 2]);
+    /// ```
+    fn init(self) -> [T; N - 1];
+    /// Gives you a <code>[head, [_](Deconstruct_::tail) @ ..]</code>.
+    /// See also [`uncons`](Deconstruct::uncons).
+    fn head(self) -> T;
+    /// Gives you a <code>[[_](Deconstruct_::head), tail @ ..]</code>.
+    /// See also [`uncons`](Deconstruct::uncons).
+    fn tail(self) -> [T; N - 1];
+}
+
+impl<T, const N: usize> const Deconstruct<T, N> for [T; N] {
+    #[doc(alias = "pop_front")]
+    fn uncons(self) -> (T, [T; N - 1]) {
         // SAFETY: the layout is alright.
         unsafe { Pair::splat(self) }
     }
 
-    #[doc(alias = "last")]
-    fn pop(self) -> ([T; N - 1], T) {
+    #[doc(alias = "pop")]
+    fn unsnoc(self) -> ([T; N - 1], T) {
         // SAFETY: the layout is still alright.
         unsafe { Pair::splat(self) }
     }
 }
 
-/// Removes the last element of a array. The opposite of [`DropFront`].
-pub trait Trunc<T, const N: usize> {
-    /// Remove the last element of a array.
-    /// You can think of this like <code>a.[pop()](Pop::pop).0</code>
-    /// ```
-    /// # #![feature(generic_const_exprs)]
-    /// # use atools::prelude::*;
-    /// let a = [1u64, 2].trunc();
-    /// assert_eq!(a, [1]);
-    /// ```
-    fn trunc(self) -> [T; N - 1];
-}
-
-impl<const N: usize, T> Trunc<T, N> for [T; N] {
-    fn trunc(self) -> [T; N - 1] {
-        self.pop().0
+impl<T, const N: usize> Deconstruct_<T, N> for [T; N]
+where
+    [(); N - 1]:,
+{
+    fn last(self) -> T {
+        self.unsnoc().1
     }
-}
-
-/// Remove the first element of a array. The opposite of [`Trunc`].
-pub trait DropFront<T, const N: usize> {
-    /// Removes the first element.
-    fn drop_front(self) -> [T; N - 1];
-}
-
-impl<const N: usize, T> DropFront<T, N> for [T; N] {
-    fn drop_front(self) -> [T; N - 1] {
-        self.pop_front().1
+    #[doc(alias = "trunc")]
+    fn init(self) -> [T; N - 1] {
+        self.unsnoc().0
+    }
+    fn head(self) -> T {
+        self.uncons().0
+    }
+    fn tail(self) -> [T; N - 1] {
+        self.uncons().1
     }
 }
 
@@ -324,12 +336,33 @@ pub trait Split<T, const N: usize> {
     /// let ([x], [y, z]) = x.split::<1>();
     /// ```
     fn split<const AT: usize>(self) -> ([T; AT], [T; N - AT]);
+    /// Take `AT` elements, discarding the rest.
+    /// ```
+    /// # #![feature(generic_const_exprs)]
+    /// # use atools::prelude::*;
+    /// assert_eq!(range::<50>().take::<5>(), range::<5>());
+    /// ```
+    fn take<const AT: usize>(self) -> [T; AT]
+    where
+        [(); N - AT]:;
+    /// Discard `AT` elements, returning the rest.
+    fn drop<const AT: usize>(self) -> [T; N - AT];
 }
 
 impl<T, const N: usize> Split<T, N> for [T; N] {
     fn split<const AT: usize>(self) -> ([T; AT], [T; N - AT]) {
         // SAFETY: N - AT overflows when AT > N so the size of the returned "array" is the same.
-        unsafe { transmute_unchecked::<_, Pair<_, _>>(self).into() }
+        unsafe { Pair::splat(self) }
+    }
+    fn take<const M: usize>(self) -> [T; M]
+    where
+        // M <= N
+        [(); N - M]:,
+    {
+        self.split::<M>().0
+    }
+    fn drop<const M: usize>(self) -> [T; N - M] {
+        self.split::<M>().1
     }
 }
 
@@ -365,13 +398,6 @@ pub trait ArrayTools<T, const N: usize> {
     fn each(self, apply: impl FnMut(T));
     /// Embed the index.
     fn enumerate(self) -> [(T, usize); N];
-    /// Take `M` elements, discarding the rest.
-    /// ```
-    /// # #![feature(generic_const_exprs)]
-    /// # use atools::prelude::*;
-    /// assert_eq!(range::<50>().take::<5>(), range::<5>());
-    /// ```
-    fn take<const M: usize>(self) -> [T; M];
     /// Get the sliding windows of this array.
     /// ```
     /// # #![feature(generic_const_exprs)]
@@ -442,10 +468,6 @@ impl<T, const N: usize> ArrayTools<T, N> for [T; N] {
             n += 1;
             (x, o)
         })
-    }
-
-    fn take<const M: usize>(self) -> [T; M] {
-        self.into_iter().take(M).carr()
     }
 
     fn windowed<const W: usize>(&self) -> [&[T; W]; N - W + 1] {

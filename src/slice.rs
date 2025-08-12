@@ -71,7 +71,7 @@ pub trait Slice<T, const N: usize> {
     /// Slices the array.
     /// Compile time checked.
     /// ```
-    /// # #![feature(generic_const_exprs)]
+    /// # #![feature(generic_const_exprs, const_trait_impl)]
     /// # use atools::prelude::*;
     /// let x = atools::range::<5>();
     /// assert_eq!(*x.slice::<{ r(2..=4) }>(), [2, 3, 4]);
