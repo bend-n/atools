@@ -21,7 +21,11 @@
     clippy::use_self,
     missing_docs
 )]
-use core::{array::from_fn, intrinsics::transmute_unchecked, mem::MaybeUninit as MU};
+use core::{
+    array::from_fn,
+    intrinsics::transmute_unchecked,
+    mem::{offset_of, MaybeUninit as MU},
+};
 pub mod pervasive;
 mod slice;
 mod tuple;
@@ -46,16 +50,28 @@ pub mod prelude {
 #[repr(C)]
 struct Pair<X, Y>(X, Y);
 impl<X, Y> Pair<X, Y> {
-    const unsafe fn into(self) -> (X, Y) {
-        // SAFETY: this is unsound, as the layout of the tuple may change.
-        // crater? you there yet?
-        unsafe { transmute_unchecked(self) }
+    const fn tuple() -> bool {
+        (size_of::<(X, Y)>() == size_of::<Self>())
+            & (offset_of!(Self, 0) == offset_of!((X, Y), 0))
+            & (offset_of!(Self, 1) == offset_of!((X, Y), 1))
+    }
+
+    const fn into(self) -> (X, Y) {
+        if Self::tuple() {
+            // SAFETY: we are a tuple!!!
+            unsafe { transmute_unchecked::<Self, (X, Y)>(self) }
+        } else {
+            // SAFETY: this is safe.
+            let out = unsafe { (core::ptr::read(&self.0), core::ptr::read(&self.1)) };
+            core::mem::forget(self);
+            out
+        }
     }
 
     const unsafe fn splat<T>(x: T) -> (X, Y) {
         assert!(core::mem::size_of::<T>() == core::mem::size_of::<Pair<X, Y>>());
         // SAFETY: well.
-        unsafe { transmute_unchecked::<_, Self>(x).into() }
+        unsafe { transmute_unchecked::<_, Self>(x) }.into()
     }
 }
 
