@@ -61,7 +61,7 @@ impl const Ranged for RangeToInclusive<usize> {
 ///
 /// Takes a type in the form {[`Range`], [`RangeInclusive`], [`RangeTo`], [`RangeToInclusive`]}.
 #[allow(private_bounds)]
-pub const fn r<T: ~const Ranged>(x: T) -> Range {
+pub const fn r<T: [const] Ranged>(x: T) -> Range {
     Ranged::range(x)
 }
 

@@ -2,6 +2,7 @@
 #![cfg_attr(not(test), no_std)]
 #![allow(incomplete_features, internal_features)]
 #![feature(
+    const_destruct,
     adt_const_params,
     generic_const_exprs,
     core_intrinsics,
@@ -24,6 +25,7 @@
 use core::{
     array::from_fn,
     intrinsics::transmute_unchecked,
+    marker::Destruct,
     mem::{offset_of, MaybeUninit as MU},
 };
 pub mod pervasive;
@@ -41,7 +43,7 @@ pub mod prelude {
     #[doc(inline)]
     pub use super::{
         pervasive::prelude::*, range, slice::r, slice::Slice, splat, Array, ArrayTools, Chunked,
-        CollectArray, Couple, Deconstruct, Flatten, Join, Split, Tuple,
+        CollectArray, Couple, Deconstruct, Flatten, Join, Split, Tuple, Zip,
     };
     #[doc(inline)]
     pub use core::array::from_fn;
@@ -344,12 +346,15 @@ pub trait Split<T, const N: usize> {
     /// ```
     fn take<const AT: usize>(self) -> [T; AT]
     where
-        [(); N - AT]:;
+        [(); N - AT]:,
+        T: [const] Destruct;
     /// Discard `AT` elements, returning the rest.
-    fn drop<const AT: usize>(self) -> [T; N - AT];
+    fn drop<const AT: usize>(self) -> [T; N - AT]
+    where
+        T: [const] Destruct;
 }
 
-impl<T, const N: usize> Split<T, N> for [T; N] {
+impl<T, const N: usize> const Split<T, N> for [T; N] {
     fn split<const AT: usize>(self) -> ([T; AT], [T; N - AT]) {
         // SAFETY: N - AT overflows when AT > N so the size of the returned "array" is the same.
         unsafe { Pair::splat(self) }
@@ -358,11 +363,34 @@ impl<T, const N: usize> Split<T, N> for [T; N] {
     where
         // M <= N
         [(); N - M]:,
+        T: [const] Destruct,
     {
         self.split::<M>().0
     }
-    fn drop<const M: usize>(self) -> [T; N - M] {
+    fn drop<const M: usize>(self) -> [T; N - M]
+    where
+        T: [const] Destruct,
+    {
         self.split::<M>().1
+    }
+}
+#[const_trait]
+/// Zip arrays together.
+pub trait Zip<T, const N: usize> {
+    /// Zip arrays together.
+    fn zip<U>(self, with: [U; N]) -> [(T, U); N];
+}
+
+impl<T, const N: usize> const Zip<T, N> for [T; N] {
+    fn zip<U>(self, with: [U; N]) -> [(T, U); N] {
+        let mut out = unsafe { MU::<[MU<_>; N]>::uninit().assume_init() };
+        let mut i = 0usize;
+        while i < out.len() {
+            out[i] = MU::new(unsafe { (self.as_ptr().add(i).read(), with.as_ptr().add(i).read()) });
+            i += 1;
+        }
+        core::mem::forget((self, with));
+        unsafe { transmute_unchecked(out) }
     }
 }
 
@@ -382,8 +410,6 @@ pub trait ArrayTools<T, const N: usize> {
     /// assert_eq!(range::<50>().step::<3>(), [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48]);
     /// ```
     fn step<const STEP: usize>(self) -> [T; 1 + (N - 1) / (STEP)];
-    /// Zip arrays together.
-    fn zip<U>(self, with: [U; N]) -> [(T, U); N];
     /// Intersperse a element in between items.
     /// ```
     /// # #![feature(generic_const_exprs)]
@@ -446,10 +472,6 @@ impl<T, const N: usize> ArrayTools<T, N> for [T; N] {
     fn step<const STEP: usize>(self) -> [T; 1 + (N - 1) / (STEP)] {
         self.into_iter().step_by(STEP).carr()
     }
-    fn zip<U>(self, with: [U; N]) -> [(T, U); N] {
-        self.into_iter().zip(with).carr()
-    }
-
     fn intersperse(self, with: T) -> [T; (N * 2) - 1]
     where
         T: Clone,

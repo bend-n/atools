@@ -69,7 +69,7 @@ mod array_and_array {
 
                 impl<T: core::ops::$op<Output = T> + Copy, const N: usize> $n<T, N> for [T; N] {
                     fn $name(self, rhs: [T; N]) -> Self {
-                        use crate::ArrayTools;
+                        use crate::Zip;
                         self.zip(rhs).map(|(a, b)| core::ops::$op::$f(a, b))
                     }
                 }
