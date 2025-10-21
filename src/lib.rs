@@ -43,7 +43,7 @@ pub mod prelude {
     #[doc(inline)]
     pub use super::{
         pervasive::prelude::*, range, slice::r, slice::Slice, splat, Array, ArrayTools, Chunked,
-        CollectArray, Couple, Deconstruct, Flatten, Join, Split, Tuple, Zip,
+        CollectArray, Couple, Deconstruct, Deconstruct_, Flatten, Join, Split, Tuple, Zip,
     };
     #[doc(inline)]
     pub use core::array::from_fn;
@@ -168,6 +168,12 @@ pub trait Deconstruct_<T, const N: usize> {
     fn head(self) -> T;
     /// Gives you a <code>[[_](Deconstruct_::head), tail @ ..]</code>.
     /// See also [`uncons`](Deconstruct::uncons).
+    /// ```
+    /// # #![feature(generic_const_exprs)]
+    /// # use atools::prelude::*;
+    /// let x = atools::range::<5>();
+    /// assert!(*x.tail() == atools::range::<4>().map(|x| x + 1));
+    /// ```
     fn tail(self) -> [T; N - 1];
 }
 

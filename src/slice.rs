@@ -81,23 +81,6 @@ pub trait Slice<T, const N: usize> {
     where
         // comptime length check
         [(); RANGE.valid::<N>() - 1]:;
-
-    /// Yields all but the last element.
-    /// ```
-    /// # #![feature(generic_const_exprs)]
-    /// # use atools::prelude::*;
-    /// let x = atools::range::<5>();
-    /// assert!(*x.init() == atools::range::<4>());
-    /// ```
-    fn init(&self) -> &[T; N - 1];
-    /// Yields all but the first element.
-    /// ```
-    /// # #![feature(generic_const_exprs)]
-    /// # use atools::prelude::*;
-    /// let x = atools::range::<5>();
-    /// assert!(*x.tail() == atools::range::<4>().map(|x| x + 1));
-    /// ```
-    fn tail(&self) -> &[T; N - 1];
 }
 
 const unsafe fn slice<T, const N: usize, const TO: usize>(x: &[T; N], begin: usize) -> &[T; TO] {
@@ -112,14 +95,6 @@ impl<T, const N: usize> const Slice<T, N> for [T; N] {
     {
         // SAFETY: the validity check ensures that the array will be in bounds.
         unsafe { slice::<T, N, { RANGE.length::<N>() }>(self, RANGE.range::<N>().0) }
-    }
-
-    fn init(&self) -> &[T; N - 1] {
-        unsafe { slice::<T, N, { N - 1 }>(self, 0) }
-    }
-
-    fn tail(&self) -> &[T; N - 1] {
-        unsafe { slice::<T, N, { N - 1 }>(self, 1) }
     }
 }
 
