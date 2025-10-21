@@ -43,7 +43,7 @@ pub mod prelude {
     #[doc(inline)]
     pub use super::{
         pervasive::prelude::*, range, slice::r, slice::Slice, splat, Array, ArrayTools, Chunked,
-        CollectArray, Couple, Deconstruct, Deconstruct_, Flatten, Join, Split, Tuple, Zip,
+        CollectArray, Couple, Deconstruct, Flatten, Join, Split, Tuple, Zip,
     };
     #[doc(inline)]
     pub use core::array::from_fn;
@@ -125,6 +125,7 @@ impl<T, I: Iterator<Item = T>> CollectArray<T> for I {
 /// # use atools::prelude::*;
 /// let (t, arr) = [1, 2].uncons();
 /// ```
+/// <img src="https://media.discordapp.net/attachments/1190100233233895585/1430294602144813167/listmonster.png?ex=68f94126&is=68f7efa6&hm=1e2f1d83a8348d1369eb33c5f4f62aa5787eb05eec3d782bf49d93f84b04d94a&=&width=710&height=355">
 #[const_trait]
 pub trait Deconstruct<T, const N: usize> {
     /// Gives you the <code>[[head](Deconstruct_::head), [tail](Deconstruct_::tail) @ ..]</code>
@@ -145,15 +146,6 @@ pub trait Deconstruct<T, const N: usize> {
     /// assert_eq!(t, 0.3);
     /// ```
     fn unsnoc(self) -> ([T; N - 1], T);
-}
-
-/// Deconstruct some array. (dropping edition).
-///
-/// <img src="https://media.discordapp.net/attachments/273541645579059201/1404772577259294770/listmonster.png?ex=689c67e9&is=689b1669&hm=00525f7bb8ffb2eb096a46d10509ebf8def669ca3175a713df686ff4be7a4e67">
-pub trait Deconstruct_<T, const N: usize> {
-    /// Gives you a <code>[[_](Deconstruct_::init) @ .., last]</code>.
-    /// See also [`unsnoc`](Deconstruct::unsnoc).
-    fn last(self) -> T;
     /// Gives you a <code>[init @ .., [_](Deconstruct_::last)]</code>
     /// See also [`unsnoc`](Deconstruct::unsnoc).
     /// ```
@@ -163,9 +155,6 @@ pub trait Deconstruct_<T, const N: usize> {
     /// assert_eq!(a, [1, 2]);
     /// ```
     fn init(self) -> [T; N - 1];
-    /// Gives you a <code>[head, [_](Deconstruct_::tail) @ ..]</code>.
-    /// See also [`uncons`](Deconstruct::uncons).
-    fn head(self) -> T;
     /// Gives you a <code>[[_](Deconstruct_::head), tail @ ..]</code>.
     /// See also [`uncons`](Deconstruct::uncons).
     /// ```
@@ -175,9 +164,23 @@ pub trait Deconstruct_<T, const N: usize> {
     /// assert!(*x.tail() == atools::range::<4>().map(|x| x + 1));
     /// ```
     fn tail(self) -> [T; N - 1];
+    /// Gives you a <code>[[_](Deconstruct_::init) @ .., last]</code>.
+    /// See also [`unsnoc`](Deconstruct::unsnoc).
+    fn last(self) -> T
+    where
+        [(); N - 1]:;
+
+    /// Gives you a <code>[head, [_](Deconstruct_::tail) @ ..]</code>.
+    /// See also [`uncons`](Deconstruct::uncons).
+    fn head(self) -> T
+    where
+        [(); N - 1]:;
 }
 
-impl<T, const N: usize> const Deconstruct<T, N> for [T; N] {
+impl<T, const N: usize> const Deconstruct<T, N> for [T; N]
+where
+    T: [const] Destruct,
+{
     #[doc(alias = "pop_front")]
     fn uncons(self) -> (T, [T; N - 1]) {
         // SAFETY: the layout is alright.
@@ -189,24 +192,28 @@ impl<T, const N: usize> const Deconstruct<T, N> for [T; N] {
         // SAFETY: the layout is still alright.
         unsafe { Pair::splat(self) }
     }
-}
-
-impl<T, const N: usize> Deconstruct_<T, N> for [T; N]
-where
-    [(); N - 1]:,
-{
-    fn last(self) -> T {
-        self.unsnoc().1
+    fn tail(self) -> [T; N - 1]
+    where
+        T: [const] Destruct,
+    {
+        self.uncons().1
     }
     #[doc(alias = "trunc")]
     fn init(self) -> [T; N - 1] {
         self.unsnoc().0
     }
-    fn head(self) -> T {
-        self.uncons().0
+    fn last(self) -> T
+    where
+        [(); N - 1]:,
+    {
+        self.unsnoc().1
     }
-    fn tail(self) -> [T; N - 1] {
-        self.uncons().1
+
+    fn head(self) -> T
+    where
+        [(); N - 1]:,
+    {
+        self.uncons().0
     }
 }
 
