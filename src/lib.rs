@@ -333,8 +333,8 @@ pub trait Flatten<T, const N: usize, const N2: usize> {
     fn flatten(self) -> [T; N * N2];
 }
 
-impl<T, const N: usize, const N2: usize> const Flatten<T, N, N2> for [[T; N]; N2] {
-    fn flatten(self) -> [T; N * N2] {
+impl<T, const N: usize, const M: usize> const Flatten<T, N, M> for [[T; M]; N] {
+    fn flatten(self) -> [T; N * M] {
         // SAFETY: layout is the same.
         unsafe { core::intrinsics::transmute_unchecked(self) }
     }
@@ -461,7 +461,7 @@ pub trait ArrayTools<T, const N: usize> {
     /// # use atools::prelude::*;
     /// assert_eq!([1u64, 2].cartesian_product(&["Π", "Σ"]), [(1, "Π"), (1, "Σ"), (2, "Π"), (2, "Σ")]);
     /// ```
-    fn cartesian_product<U: Clone, const M: usize>(&self, with: &[U; M]) -> [(T, U); N + M]
+    fn cartesian_product<U: Clone, const M: usize>(self, with: &[U; M]) -> [(T, U); N * M]
     where
         T: Clone;
     /// Sorts it. This uses <code>[[T](slice)]::[sort_unstable](slice::sort_unstable)</code>.
@@ -532,13 +532,12 @@ impl<T, const N: usize> ArrayTools<T, N> for [T; N] {
         })
     }
 
-    fn cartesian_product<U: Clone, const M: usize>(&self, with: &[U; M]) -> [(T, U); N + M]
+    fn cartesian_product<U: Clone, const M: usize>(self, with: &[U; M]) -> [(T, U); N * M]
     where
         T: Clone,
     {
-        self.iter()
-            .flat_map(|a| with.iter().map(move |b| (a.clone(), b.clone())))
-            .carr()
+        self.map(|a| with.clone().map(move |b| (a.clone(), b)))
+            .flatten()
     }
 
     fn sort(mut self) -> Self
