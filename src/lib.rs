@@ -151,7 +151,7 @@ pub trait Deconstruct<T, const N: usize> {
     /// ```
     /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
-    /// let a = *[1u64, 2, 3].init();
+    /// let a = [1u64, 2, 3].init();
     /// assert_eq!(a, [1, 2]);
     /// ```
     fn init(self) -> [T; N - 1];
@@ -161,7 +161,7 @@ pub trait Deconstruct<T, const N: usize> {
     /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// let x = atools::range::<5>();
-    /// assert!(*x.tail() == atools::range::<4>().map(|x| x + 1));
+    /// assert!(x.tail() == atools::range::<4>().map(|x| x + 1));
     /// ```
     fn tail(self) -> [T; N - 1];
     /// Gives you a <code>[[_](Deconstruct_::init) @ .., last]</code>.
@@ -179,7 +179,7 @@ pub trait Deconstruct<T, const N: usize> {
 
 impl<T, const N: usize> const Deconstruct<T, N> for [T; N]
 where
-    T: [const] Destruct,
+    T: ~const Destruct,
 {
     #[doc(alias = "pop_front")]
     fn uncons(self) -> (T, [T; N - 1]) {
@@ -194,7 +194,7 @@ where
     }
     fn tail(self) -> [T; N - 1]
     where
-        T: [const] Destruct,
+        T: ~const Destruct,
     {
         self.uncons().1
     }
@@ -360,11 +360,11 @@ pub trait Split<T, const N: usize> {
     fn take<const AT: usize>(self) -> [T; AT]
     where
         [(); N - AT]:,
-        T: [const] Destruct;
+        T: ~const Destruct;
     /// Discard `AT` elements, returning the rest.
     fn drop<const AT: usize>(self) -> [T; N - AT]
     where
-        T: [const] Destruct;
+        T: ~const Destruct;
 }
 
 impl<T, const N: usize> const Split<T, N> for [T; N] {
@@ -376,13 +376,13 @@ impl<T, const N: usize> const Split<T, N> for [T; N] {
     where
         // M <= N
         [(); N - M]:,
-        T: [const] Destruct,
+        T: ~const Destruct,
     {
         self.split::<M>().0
     }
     fn drop<const M: usize>(self) -> [T; N - M]
     where
-        T: [const] Destruct,
+        T: ~const Destruct,
     {
         self.split::<M>().1
     }
