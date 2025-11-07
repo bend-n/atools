@@ -268,14 +268,6 @@ impl<T, const O: usize> const Join<T, 1, O, [T; O]> for T {
     }
 }
 
-pub(crate) const fn assert_zero(x: usize) -> usize {
-    if x != 0 {
-        panic!("expected zero");
-    } else {
-        0
-    }
-}
-
 /// 🍪
 #[allow(private_bounds)]
 #[const_trait]
@@ -286,19 +278,20 @@ pub trait Chunked<T, const N: usize> {
     /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// assert_eq!(range::<6>().chunked::<3>(), [[0, 1, 2], [3, 4, 5]]);
+    /// assert_eq!(range::<6>().chunked::<4>(), [[0, 1, 2], [3, 4, 5]]);
     /// ```
     #[allow(private_bounds)]
     fn chunked<const C: usize>(self) -> [[T; C]; N / C]
     where
         // N % C == 0
-        [(); assert_zero(N % C)]:;
+        [(); N % C + usize::MAX]:;
 }
 
 impl<const N: usize, T> const Chunked<T, N> for [T; N] {
     #[allow(private_bounds)]
     fn chunked<const C: usize>(self) -> [[T; C]; N / C]
     where
-        [(); assert_zero(N % C)]:,
+        [(); N % C + usize::MAX]:,
     {
         // SAFETY: N != 0 && wont leak as N % C == 0.
         let retval = unsafe { self.as_ptr().cast::<[[T; C]; N / C]>().read() };
