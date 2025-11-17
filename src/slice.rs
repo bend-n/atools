@@ -23,12 +23,11 @@ impl Range {
     }
 }
 
-#[const_trait]
 #[diagnostic::on_unimplemented(
     message = "{Self} is not a valid range type",
     label = "use a correct range type, such as {{Range(x..y), RangeInclusive(x..=y), RangeTo(..x), RangeToInclusive(..=x)}}"
 )]
-pub trait Ranged {
+pub const trait Ranged {
     fn range(self) -> Range;
 }
 impl const Ranged for core::ops::Range<usize> {
@@ -61,13 +60,12 @@ impl const Ranged for RangeToInclusive<usize> {
 ///
 /// Takes a type in the form {[`Range`], [`RangeInclusive`], [`RangeTo`], [`RangeToInclusive`]}.
 #[allow(private_bounds)]
-pub const fn r<T: ~const Ranged>(x: T) -> Range {
+pub const fn r<T: [const] Ranged>(x: T) -> Range {
     Ranged::range(x)
 }
 
-#[const_trait]
 /// Slicing arrays up.
-pub trait Slice<T, const N: usize> {
+pub const trait Slice<T, const N: usize> {
     /// Slices the array.
     /// Compile time checked.
     /// ```

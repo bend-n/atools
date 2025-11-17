@@ -1,15 +1,28 @@
+mod seal {
+    pub trait Seal {}
+    impl<T, const N: usize> Seal for [T; N] {}
+}
+use seal::Seal;
 /// Turn a tuple into a array. Implemented for N≤32
-pub trait Array<const N: usize, T> {
+pub trait Array<const N: usize, T>: Sized + Seal {
     /// Turn a tuple into a array
     fn array(self) -> [T; N];
+    /// Turn a array into a tuple.
+    /// Prefer postfix [`Tuple::tuple`].
+    fn tuple(x: [T; N]) -> Self;
 }
 
 /// Turn a array into a tuple. Implemented for N≤32
-pub trait Tuple<O> {
+pub trait Tuple<T, const N: usize, O: Array<N, T>> {
     /// Turn a array into a tuple.
     fn tuple(self) -> O;
 }
 
+impl<T, const N: usize, O: Array<N, T>> Tuple<T, N, O> for [T; N] {
+    fn tuple(self) -> O {
+        Array::tuple(self)
+    }
+}
 // thanks yandros
 macro_rules! with_vars {
     (
@@ -42,23 +55,13 @@ macro_rules! generate {(
     $(generate! { $($T)* })?
     do_impl! { [$] $($Hd $($T)*)? }
 )}
-macro_rules! do_impl {(
+macro_rules! do_impl {
+([$_:tt]) => {};
+(
     [$_:tt] // `$` sigil
-    $($i:tt)*
+    $($i:tt)+
 ) => (
-    impl<T> Tuple<($($i, )*)> for [T; 0 $(+ { stringify!($i); 1 } )*] {
-        fn tuple(self) -> ($($i, )*) {
-            with_vars! {
-                [acc: ]
-                [to_munch: $($i)*]
-                |$_ x| {
-                    let [$_($x, )*] = self;
-                    ($_($x, )*)
-                }
-            }
-        }
-    }
-
+    impl<T> Seal for ($($i, )*) {}
     impl<T> Array<{ 0 $(+ { stringify!($i); 1 } )* }, T> for ($($i, )*) {
         fn array(self) -> [T; 0 $(+ { stringify!($i); 1 } )*] {
             with_vars! {
@@ -70,8 +73,19 @@ macro_rules! do_impl {(
                 }
             }
         }
+        fn tuple(x: [T;  0 $(+ { stringify!($i); 1 } )*]) -> ($($i, )*) {
+            with_vars! {
+                [acc: ]
+                [to_munch: $($i)*]
+                |$_ x| {
+                    let [$_($x, )*] = x;
+                    ($_($x, )*)
+                }
+            }
+        }
     }
-)}
+);
+}
 
 generate! {
     T T T T  T T T T

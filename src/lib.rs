@@ -26,7 +26,7 @@ use core::{
     array::from_fn,
     intrinsics::transmute_unchecked,
     marker::Destruct,
-    mem::{offset_of, MaybeUninit as MU},
+    mem::{MaybeUninit as MU, offset_of},
 };
 pub mod pervasive;
 mod slice;
@@ -42,8 +42,8 @@ pub use tuple::*;
 pub mod prelude {
     #[doc(inline)]
     pub use super::{
-        pervasive::prelude::*, range, slice::r, slice::Slice, splat, Array, ArrayTools, Chunked,
-        CollectArray, Couple, Deconstruct, Flatten, Join, Split, Tuple, Zip,
+        Array, ArrayTools, Chunked, CollectArray, Couple, Deconstruct, Flatten, Join, Split, Tuple,
+        Zip, pervasive::prelude::*, range, slice::Slice, slice::r, splat,
     };
     #[doc(inline)]
     pub use core::array::from_fn;
@@ -126,8 +126,7 @@ impl<T, I: Iterator<Item = T>> CollectArray<T> for I {
 /// let (t, arr) = [1, 2].uncons();
 /// ```
 /// <img src="https://media.discordapp.net/attachments/1190100233233895585/1430294602144813167/listmonster.png?ex=68f94126&is=68f7efa6&hm=1e2f1d83a8348d1369eb33c5f4f62aa5787eb05eec3d782bf49d93f84b04d94a&=&width=710&height=355">
-#[const_trait]
-pub trait Deconstruct<T, const N: usize> {
+pub const trait Deconstruct<T, const N: usize> {
     /// Gives you the <code>[[head](Deconstruct_::head), [tail](Deconstruct_::tail) @ ..]</code>
     /// ```
     /// # #![feature(generic_const_exprs)]
@@ -179,7 +178,7 @@ pub trait Deconstruct<T, const N: usize> {
 
 impl<T, const N: usize> const Deconstruct<T, N> for [T; N]
 where
-    T: ~const Destruct,
+    T: [const] Destruct,
 {
     #[doc(alias = "pop_front")]
     fn uncons(self) -> (T, [T; N - 1]) {
@@ -194,7 +193,7 @@ where
     }
     fn tail(self) -> [T; N - 1]
     where
-        T: ~const Destruct,
+        T: [const] Destruct,
     {
         self.uncons().1
     }
@@ -218,8 +217,7 @@ where
 }
 
 /// Join scalars together.
-#[const_trait]
-pub trait Join<T, const N: usize, const O: usize, U> {
+pub const trait Join<T, const N: usize, const O: usize, U> {
     /// Join a array and an scalar together. For joining two arrays together, see [`Couple`].
     /// ```
     /// # #![feature(generic_const_exprs)]
@@ -232,8 +230,7 @@ pub trait Join<T, const N: usize, const O: usize, U> {
 }
 
 /// Couple two arrays together.
-#[const_trait]
-pub trait Couple<T, const N: usize, const O: usize> {
+pub const trait Couple<T, const N: usize, const O: usize> {
     /// Couple two arrays together. This could have been [`Join`], but the methods would require disambiguation.
     /// ```
     /// # #![feature(generic_const_exprs)]
@@ -270,8 +267,7 @@ impl<T, const O: usize> const Join<T, 1, O, [T; O]> for T {
 
 /// 🍪
 #[allow(private_bounds)]
-#[const_trait]
-pub trait Chunked<T, const N: usize> {
+pub const trait Chunked<T, const N: usize> {
     /// Chunks.
     /// This will compile fail if `N ∤ (does not divide) C`
     /// ```
@@ -301,8 +297,7 @@ impl<const N: usize, T> const Chunked<T, N> for [T; N] {
 }
 
 /// Flatten arrays.
-#[const_trait]
-pub trait Flatten<T, const N: usize, const N2: usize> {
+pub const trait Flatten<T, const N: usize, const N2: usize> {
     /// Takes a `[[T; N]; N2]`, and flattens it to a `[T; N * N2]`.
     ///
     /// # Examples
@@ -333,9 +328,8 @@ impl<T, const N: usize, const M: usize> const Flatten<T, N, M> for [[T; M]; N] {
     }
 }
 
-#[const_trait]
 /// Splitting arrays up.
-pub trait Split<T, const N: usize> {
+pub const trait Split<T, const N: usize> {
     /// Splits the array into twain.
     /// ```
     /// # #![feature(generic_const_exprs)]
@@ -353,11 +347,11 @@ pub trait Split<T, const N: usize> {
     fn take<const AT: usize>(self) -> [T; AT]
     where
         [(); N - AT]:,
-        T: ~const Destruct;
+        T: [const] Destruct;
     /// Discard `AT` elements, returning the rest.
     fn drop<const AT: usize>(self) -> [T; N - AT]
     where
-        T: ~const Destruct;
+        T: [const] Destruct;
 }
 
 impl<T, const N: usize> const Split<T, N> for [T; N] {
@@ -369,20 +363,19 @@ impl<T, const N: usize> const Split<T, N> for [T; N] {
     where
         // M <= N
         [(); N - M]:,
-        T: ~const Destruct,
+        T: [const] Destruct,
     {
         self.split::<M>().0
     }
     fn drop<const M: usize>(self) -> [T; N - M]
     where
-        T: ~const Destruct,
+        T: [const] Destruct,
     {
         self.split::<M>().1
     }
 }
-#[const_trait]
 /// Zip arrays together.
-pub trait Zip<T, const N: usize> {
+pub const trait Zip<T, const N: usize> {
     /// Zip arrays together.
     fn zip<U>(self, with: [U; N]) -> [(T, U); N];
 }
