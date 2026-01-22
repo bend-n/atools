@@ -1,7 +1,9 @@
-//! a collection of useful features for working with arrays
 #![cfg_attr(not(test), no_std)]
+//! a collection of useful features for working with arrays
 #![allow(incomplete_features, internal_features)]
 #![feature(
+    const_convert,
+    cast_maybe_uninit,
     const_destruct,
     adt_const_params,
     generic_const_exprs,
@@ -9,7 +11,6 @@
     iter_intersperse,
     const_trait_impl,
     maybe_uninit_array_assume_init,
-    array_windows,
     iter_map_windows
 )]
 #![warn(
@@ -26,7 +27,7 @@ use core::{
     array::from_fn,
     intrinsics::transmute_unchecked,
     marker::Destruct,
-    mem::{MaybeUninit as MU, offset_of},
+    mem::{ManuallyDrop as MD, MaybeUninit as MU, offset_of},
 };
 pub mod pervasive;
 mod slice;
@@ -42,8 +43,8 @@ pub use tuple::*;
 pub mod prelude {
     #[doc(inline)]
     pub use super::{
-        Array, ArrayTools, Chunked, CollectArray, Couple, Deconstruct, Flatten, Join, Split, Tuple,
-        Zip, pervasive::prelude::*, range, slice::Slice, slice::r, splat,
+        Array, ArrayTools, Chunked, CollectArray, Couple, Deconstruct, Flatten, Join, SkipEvery,
+        Split, Tuple, Zip, pervasive::prelude::*, range, slice::Slice, slice::r, splat,
     };
     #[doc(inline)]
     pub use core::array::from_fn;
@@ -274,7 +275,6 @@ pub const trait Chunked<T, const N: usize> {
     /// # #![feature(generic_const_exprs)]
     /// # use atools::prelude::*;
     /// assert_eq!(range::<6>().chunked::<3>(), [[0, 1, 2], [3, 4, 5]]);
-    /// assert_eq!(range::<6>().chunked::<4>(), [[0, 1, 2], [3, 4, 5]]);
     /// ```
     #[allow(private_bounds)]
     fn chunked<const C: usize>(self) -> [[T; C]; N / C]
@@ -378,6 +378,48 @@ impl<T, const N: usize> const Split<T, N> for [T; N] {
 pub const trait Zip<T, const N: usize> {
     /// Zip arrays together.
     fn zip<U>(self, with: [U; N]) -> [(T, U); N];
+}
+
+/// Skip every nth element.
+pub const trait SkipEvery<T, const N: usize> {
+    /// Skip every nth element.
+    /// ```
+    /// # #![feature(generic_const_exprs, const_trait_impl)]
+    /// use atools::prelude::*;
+    /// let x = range::<16>(); // 0..32
+    /// let x: [usize; 12] = x.skip_every::<4>();
+    /// assert_eq!(x, [0,1,2,/* */4,5,6,/* */8,9,10,/* */12,13,14]);
+    /// ```
+    fn skip_every<const SKIP_EVERY_N: usize>(self) -> [T; (N / SKIP_EVERY_N) * (SKIP_EVERY_N - 1)];
+}
+
+impl<T: [const] Destruct, const N: usize> const SkipEvery<T, N> for [T; N] {
+    fn skip_every<const SKIP_EVERY_N: usize>(self) -> [T; (N / SKIP_EVERY_N) * (SKIP_EVERY_N - 1)] {
+        let mut out = [const { MU::uninit() }; _];
+        let mut i = 0;
+
+        let me = MD::new(self);
+        let mut me = me.as_ptr();
+        let mut p = out.as_mut_ptr().cast_init();
+
+        while i < N {
+            // SAFETY: into_iter @ home
+            let this = unsafe { me.read() };
+            // SAFETY: "
+            me = unsafe { me.add(1) };
+
+            if (i + 1) % SKIP_EVERY_N != 0 {
+                // SAFETY: the math works out, trust me.
+                unsafe {
+                    *p = this;
+                    p = p.add(1);
+                };
+            }
+            i += 1;
+        }
+        // SAFETY: its all about that N
+        unsafe { MU::array_assume_init(out) }
+    }
 }
 
 impl<T, const N: usize> const Zip<T, N> for [T; N] {
