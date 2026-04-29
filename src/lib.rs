@@ -11,7 +11,8 @@
     iter_intersperse,
     const_trait_impl,
     maybe_uninit_array_assume_init,
-    iter_map_windows
+    iter_map_windows,
+    const_precise_live_drops
 )]
 #![warn(
     clippy::undocumented_unsafe_blocks,
@@ -64,10 +65,7 @@ impl<X, Y> Pair<X, Y> {
             // SAFETY: we are a tuple!!!
             unsafe { transmute_unchecked::<Self, (X, Y)>(self) }
         } else {
-            // SAFETY: this is safe.
-            let out = unsafe { (core::ptr::read(&self.0), core::ptr::read(&self.1)) };
-            core::mem::forget(self);
-            out
+            (self.0, self.1)
         }
     }
 
