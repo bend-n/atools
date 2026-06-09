@@ -2,20 +2,24 @@
 pub mod scalar_and_array {
     //! traits for scalar $op array
     macro_rules! op {
-        ($op:ident, $n:ident, $f:ident) => {
-            #[doc = concat!("see [`", stringify!($f), "`](core::ops::", stringify!($op), "::", stringify!($f), ")")]
-            pub trait $n<T, const N: usize> {
-                #[doc = concat!("apply the [`", stringify!($f), "`](core::ops::", stringify!($op), "::", stringify!($f), ") function to each element of this array.")]
-                fn $f(self, rhs: [T; N]) -> [T; N];
-            }
+    ($op:ident, $n:ident, $f:ident) => {
+        #[doc = concat!("see [`", stringify!($f), "`](core::ops::", stringify!($op), "::", stringify!($f), ")")]
+        pub trait $n<Rhs> {
+            /// result
+            type Output;
+            #[doc = concat!("apply the [`", stringify!($f), "`](core::ops::", stringify!($op), "::", stringify!($f), ") function to each element of this array.")]
+            fn $f<const N : usize>(self, rhs: [Rhs; N]) -> [Self::Output; N];
+        }
 
-            impl<T: core::ops::$op<Output = T> + Copy, const N: usize> $n<T, N> for T {
-                fn $f(self, rhs: [T; N]) -> [T; N] {
-                    rhs.map(|x| core::ops::$op::$f(self, x))
-                }
+        impl<Rhs, T: core::ops::$op<Rhs> + Copy> $n<Rhs> for T {
+            type Output = <T as core::ops::$op<Rhs>>::Output;
+            fn $f<const N : usize>(self, rhs: [Rhs; N]) -> [Self::Output; N] {
+                rhs.map(|x| core::ops::$op::$f(self, x))
             }
-        };
-    }
+        }
+    };
+}
+
     op!(Add, SAAAdd, add);
     op!(BitAnd, SAAAnd, bitand);
     op!(BitOr, SAAOr, bitor);
@@ -112,7 +116,7 @@ impl<T: core::ops::Neg<Output = T>, const N: usize> ANeg<T, N> for [T; N] {
 /// Prelude for pervasive operations.
 pub mod prelude {
     #[doc(inline)]
-    pub use super::{array_and_array::*, array_and_scalar::*, scalar_and_array::*, ANeg, ANot};
+    pub use super::{ANeg, ANot, array_and_array::*, array_and_scalar::*, scalar_and_array::*};
 }
 #[test]
 fn x() {
