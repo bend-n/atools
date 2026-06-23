@@ -30,28 +30,28 @@ impl Range {
 pub const trait Ranged {
     fn range(self) -> Range;
 }
-impl const Ranged for core::ops::Range<usize> {
+const impl Ranged for core::ops::Range<usize> {
     fn range(self) -> Range {
         Range::Range(self.start, self.end)
     }
 }
-impl const Ranged for RangeInclusive<usize> {
+const impl Ranged for RangeInclusive<usize> {
     fn range(self) -> Range {
         Range::Range(*self.start(), *self.end() + 1)
     }
 }
 
-impl const Ranged for RangeFrom<usize> {
+const impl Ranged for RangeFrom<usize> {
     fn range(self) -> Range {
         Range::RangeFrom(self.start)
     }
 }
-impl const Ranged for RangeTo<usize> {
+const impl Ranged for RangeTo<usize> {
     fn range(self) -> Range {
         Range::RangeTo(self.end)
     }
 }
-impl const Ranged for RangeToInclusive<usize> {
+const impl Ranged for RangeToInclusive<usize> {
     fn range(self) -> Range {
         Range::RangeTo(self.end + 1)
     }
@@ -86,7 +86,7 @@ const unsafe fn slice<T, const N: usize, const TO: usize>(x: &[T; N], begin: usi
     unsafe { &*x.as_ptr().add(begin).cast::<[T; TO]>() }
 }
 
-impl<T, const N: usize> const Slice<T, N> for [T; N] {
+const impl<T, const N: usize> Slice<T, N> for [T; N] {
     fn slice<const RANGE: Range>(&self) -> &[T; RANGE.length::<N>()]
     where
         [(); RANGE.valid::<N>() - 1]:,

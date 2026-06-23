@@ -11,7 +11,6 @@
     iter_intersperse,
     const_trait_impl,
     maybe_uninit_array_assume_init,
-    iter_map_windows,
     const_precise_live_drops
 )]
 #![warn(
@@ -175,7 +174,7 @@ pub const trait Deconstruct<T, const N: usize> {
         [(); N - 1]:;
 }
 
-impl<T, const N: usize> const Deconstruct<T, N> for [T; N]
+const impl<T, const N: usize> Deconstruct<T, N> for [T; N]
 where
     T: [const] Destruct,
 {
@@ -239,26 +238,26 @@ pub const trait Couple<T, const N: usize, const O: usize> {
     fn couple(self, with: [T; O]) -> [T; N + O];
 }
 
-impl<T, const N: usize, const O: usize> const Couple<T, N, O> for [T; N] {
+const impl<T, const N: usize, const O: usize> Couple<T, N, O> for [T; N] {
     fn couple(self, with: [T; O]) -> [T; N + O] {
         // SAFETY: adjacent
         unsafe { transmute_unchecked(Pair(self, with)) }
     }
 }
 
-impl<T, const N: usize> const Join<T, N, 1, T> for [T; N] {
+const impl<T, const N: usize> Join<T, N, 1, T> for [T; N] {
     fn join(self, with: T) -> [T; N + 1] {
         self.couple([with])
     }
 }
 
-impl<T> const Join<T, 1, 1, T> for T {
+const impl<T> Join<T, 1, 1, T> for T {
     fn join(self, with: T) -> [T; 2] {
         [self, with]
     }
 }
 
-impl<T, const O: usize> const Join<T, 1, O, [T; O]> for T {
+const impl<T, const O: usize> Join<T, 1, O, [T; O]> for T {
     fn join(self, with: [T; O]) -> [T; 1 + O] {
         [self].couple(with)
     }
@@ -281,7 +280,7 @@ pub const trait Chunked<T, const N: usize> {
         [(); N % C + usize::MAX]:;
 }
 
-impl<const N: usize, T> const Chunked<T, N> for [T; N] {
+const impl<const N: usize, T> Chunked<T, N> for [T; N] {
     #[allow(private_bounds)]
     fn chunked<const C: usize>(self) -> [[T; C]; N / C]
     where
@@ -319,7 +318,7 @@ pub const trait Flatten<T, const N: usize, const N2: usize> {
     fn flatten(self) -> [T; N * N2];
 }
 
-impl<T, const N: usize, const M: usize> const Flatten<T, N, M> for [[T; M]; N] {
+const impl<T, const N: usize, const M: usize> Flatten<T, N, M> for [[T; M]; N] {
     fn flatten(self) -> [T; N * M] {
         // SAFETY: layout is the same.
         unsafe { core::intrinsics::transmute_unchecked(self) }
@@ -352,7 +351,7 @@ pub const trait Split<T, const N: usize> {
         T: [const] Destruct;
 }
 
-impl<T, const N: usize> const Split<T, N> for [T; N] {
+const impl<T, const N: usize> Split<T, N> for [T; N] {
     fn split<const AT: usize>(self) -> ([T; AT], [T; N - AT]) {
         // SAFETY: N - AT overflows when AT > N so the size of the returned "array" is the same.
         unsafe { Pair::splat(self) }
@@ -391,7 +390,7 @@ pub const trait SkipEvery<T, const N: usize> {
     fn skip_every<const SKIP_EVERY_N: usize>(self) -> [T; (N / SKIP_EVERY_N) * (SKIP_EVERY_N - 1)];
 }
 
-impl<T: [const] Destruct, const N: usize> const SkipEvery<T, N> for [T; N] {
+const impl<T: [const] Destruct, const N: usize> SkipEvery<T, N> for [T; N] {
     fn skip_every<const SKIP_EVERY_N: usize>(self) -> [T; (N / SKIP_EVERY_N) * (SKIP_EVERY_N - 1)] {
         let mut out = [const { MU::uninit() }; _];
         let mut i = 0;
@@ -420,7 +419,7 @@ impl<T: [const] Destruct, const N: usize> const SkipEvery<T, N> for [T; N] {
     }
 }
 
-impl<T, const N: usize> const Zip<T, N> for [T; N] {
+const impl<T, const N: usize> Zip<T, N> for [T; N] {
     fn zip<U>(self, with: [U; N]) -> [(T, U); N] {
         let mut out = unsafe { MU::<[MU<_>; N]>::uninit().assume_init() };
         let mut i = 0usize;

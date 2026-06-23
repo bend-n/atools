@@ -1,6 +1,6 @@
 [package]
 name = "atools"
-version = "0.1.12"
+version = "0.1.13"
 edition = "2024"
 description = "const generic expr based fixed length array manipulation"
 authors = ["bend-n <bend.n@outlook.com>"]
